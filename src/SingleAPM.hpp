@@ -11,6 +11,8 @@
 #include <csignal>
 #include <iostream>
 #include <linux/i2c-dev.h>
+#include <csignal>
+#include <cstdlib>
 #include "_thirdparty/ESCGenerator.hpp"
 #include "_thirdparty/FlowController.hpp"
 #include "_thirdparty/RaspberryPiBARO/src/BaroDevice.hpp"
@@ -55,7 +57,7 @@
 #define ACCEL_UPDATE_HZ 1000
 #define PID_DT_DEFAULT 250.f
 
-#define I2CCOMPASS_ADDR 0x1e
+#define I2CCOMPASS_ADDR 0x0d
 #define I2CBARO_MS5611_ADDR 0x77
 #define I2CBARO_BMP280_ADDR 0x76
 #define I2CPCA_ADDR 0x70

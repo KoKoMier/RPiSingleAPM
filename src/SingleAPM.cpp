@@ -34,7 +34,7 @@ int SingleAPMAPI::RPiSingleAPM::RPiSingleAPMInit(APMSettinngs APMInit)
 		AF._flag_PreARM_Check_Lock = false;
 		AF._flag_IsNAVAvalible = false;
 		AF._flag_GPS_Recovered = true;
-		AF._flag_GPS_Error = true;
+		AF._flag_GPS_Error = false;
 		AF.AutoPilotMode = APModeINFO::AutoStable;
 		AF._flag_FailedSafe_Level = 0;
 		AF._flag_PreARM_Check_Level = 0;
@@ -117,6 +117,7 @@ int SingleAPMAPI::RPiSingleAPM::RPiSingleAPMInit(APMSettinngs APMInit)
 				std::cout.flush();
 #endif
 				DF.GPSInit.reset(new GPSUart(DF.GPSDevice.c_str()));
+				DF.GPSInit->GPSReOpen();
 				int _Tmp_MAG_Flip[3] = {(int)SF._flag_COMPASS_Flip_Pitch, (int)SF._flag_COMPASS_Flip__Roll, (int)SF._flag_COMPASS_Flip___Yaw};
 				DF.CompassDevice.reset(new GPSI2CCompass(DF.I2CDevice.c_str(), I2CCOMPASS_ADDR, COMPASS_HMC5883L, _Tmp_MAG_Flip));
 				DF.CompassDevice->CompassApply(SF._flag_COMPASS_Cali[CompassXOffset], SF._flag_COMPASS_Cali[CompassXScaler],
@@ -1125,9 +1126,10 @@ void SingleAPMAPI::RPiSingleAPM::PositionTaskReg()
 						int _Tmp_GPS_Static_Lng = SF._uORB_GPS_COR_Lng - SF._uORB_GPS_Hold_Lng;
 						SF._uORB_NAV_Yaw = (SF._uORB_MPU_Data._uORB_Real___Yaw > 180 && SF._uORB_MPU_Data._uORB_Real___Yaw < 360) ? SF._uORB_MPU_Data._uORB_Real___Yaw - 360 : SF._uORB_MPU_Data._uORB_Real___Yaw;
 
-						SF._uORB_GPS_Real_Y = -1 * (_Tmp_GPS_Static_Lat * cos((SF._uORB_NAV_Yaw * PI / 180.f)) + _Tmp_GPS_Static_Lng * sin((SF._uORB_NAV_Yaw * PI / 180.f))) * 11.f;
-						SF._uORB_GPS_Real_X = (_Tmp_GPS_Static_Lat * sin((SF._uORB_NAV_Yaw * PI / -180.f)) + _Tmp_GPS_Static_Lng * cos((SF._uORB_NAV_Yaw * PI / 180.f))) * 11.f;
-
+						// SF._uORB_GPS_Real_Y = -1 * (_Tmp_GPS_Static_Lat * cos((SF._uORB_NAV_Yaw * PI / 180.f)) + _Tmp_GPS_Static_Lng * sin((SF._uORB_NAV_Yaw * PI / 180.f))) * 11.f;
+						// SF._uORB_GPS_Real_X = (_Tmp_GPS_Static_Lat * sin((SF._uORB_NAV_Yaw * PI / -180.f)) + _Tmp_GPS_Static_Lng * cos((SF._uORB_NAV_Yaw * PI / 180.f))) * 11.f;
+						SF._uORB_GPS_Real_Y = -1 * (_Tmp_GPS_Static_Lat) * 33.f;
+						SF._uORB_GPS_Real_X = ( _Tmp_GPS_Static_Lng ) * 33.f;
 						// FIXME: TimeDT will zero, x /0 will cause nan, fxck
 						if (TF.GPSFlow->TimeDT != 0)
 						{
@@ -1346,6 +1348,7 @@ void SingleAPMAPI::RPiSingleAPM::TaskThreadBlock()
 		}
 #endif
 		SaftyCheck();
+		
 		if (DF.APMStatus == -2)
 		{
 			TF._flag_Block_Task_Running = false;
@@ -2089,6 +2092,10 @@ void SingleAPMAPI::RPiSingleAPM::AttitudeUpdate()
 				PF._uORB_PID__Roll_Input -= RF._uORB_RC_Out__Roll * PF._flag_PID_RCRate__Roll_Gain;
 				PF._uORB_PID_Pitch_Input -= RF._uORB_RC_Out_Pitch * PF._flag_PID_RCRate_Pitch_Gain;
 			}
+	// 						std::cout << "\033[200A";
+	// std::cout << "\033[K";
+	// std::cout << "_uORB_PID__Roll_Input:"<<PF._uORB_PID__Roll_Input<<"\n";
+	// std::cout << "_uORB_PID__Pitch_Input:"<<PF._uORB_PID_Pitch_Input<<"\n";
 			//--------------------------------------------------------------------------//
 			if (AF.AutoPilotMode == APModeINFO::AltHold ||
 				AF.AutoPilotMode == APModeINFO::AutoStable ||
@@ -2506,10 +2513,10 @@ void SingleAPMAPI::RPiSingleAPM::NavigationUpdate()
 							 RF._uORB_RC_Out_AltHoldSpeed - PF._uORB_PID_PosZUserSpeed;
 		TargetSpeed = TargetSpeed > PF._uORB_PID_Alt_Speed_Max ? PF._uORB_PID_Alt_Speed_Max : TargetSpeed;
 		TargetSpeed = TargetSpeed < -1 * PF._uORB_PID_Alt_Speed_Max ? -1 * PF._uORB_PID_Alt_Speed_Max : TargetSpeed;
-		double TargetAccel = (TargetSpeed - SF._uORB_True_Speed_Z) * PF._flag_PID_I_Alt_Gain;
-		TargetAccel = TargetAccel > PF._uORB_PID_Alt_Accel_Max ? PF._uORB_PID_Alt_Accel_Max : TargetAccel;
-		TargetAccel = TargetAccel < -1 * PF._uORB_PID_Alt_Accel_Max ? -1 * PF._uORB_PID_Alt_Accel_Max : TargetAccel;
-		PF._uORB_PID_InputTarget = TargetAccel - SF._uORB_MPU_Data._uORB_Acceleration_Z;
+		// double TargetAccel = (TargetSpeed - SF._uORB_True_Speed_Z) * PF._flag_PID_I_Alt_Gain;
+		// TargetAccel = TargetAccel > PF._uORB_PID_Alt_Accel_Max ? PF._uORB_PID_Alt_Accel_Max : TargetAccel;
+		// TargetAccel = TargetAccel < -1 * PF._uORB_PID_Alt_Accel_Max ? -1 * PF._uORB_PID_Alt_Accel_Max : TargetAccel;
+		PF._uORB_PID_InputTarget = TargetSpeed - SF._uORB_True_Speed_Z;
 		//
 		if (AF.AutoPilotMode == APModeINFO::AltHold || AF.AutoPilotMode == APModeINFO::PositionHold ||
 			AF.AutoPilotMode == APModeINFO::SpeedHold || AF.AutoPilotMode == APModeINFO::UserAuto)
@@ -2798,15 +2805,14 @@ void SingleAPMAPI::RPiSingleAPM::NavigationUpdate()
 		}
 	}
 
-	TF._Tmp_IMUNavThreadLast = GetTimestamp();
+	
 }
 
 void SingleAPMAPI::RPiSingleAPM::SaftyCheck()
 {
 	// SIG System Signal detect
-	if (SystemSignal == SIGTERM || SystemSignal == SIGINT)
-		RPiSingleAPMDeInit();
-	// Error ARMED
+	if (SystemSignal == SIGTERM || SystemSignal == SIGINT )
+		RPiSingleAPMDeInit();	// Error ARMED
 	if (AF._flag_Error == true)
 	{
 		AF._flag_ESC_ARMED = true;
@@ -2939,193 +2945,193 @@ void SingleAPMAPI::RPiSingleAPM::DebugOutPut()
 	std::cout << "\n";
 	std::cout << "ESCSpeedOutput:"
 			  << " \n";
-	std::cout << " A1 " << EF._uORB_A1_Speed << "    "
-			  << " A2 " << EF._uORB_A2_Speed << "                        "
-			  << "\n";
-	std::cout << " B1 " << EF._uORB_B1_Speed << "    "
-			  << " B2 " << EF._uORB_B2_Speed << "                        "
-			  << "\n";
+	// std::cout << " A1 " << EF._uORB_A1_Speed << "    "
+	// 		  << " A2 " << EF._uORB_A2_Speed << "                        "
+	// 		  << "\n";
+	// std::cout << " B1 " << EF._uORB_B1_Speed << "    "
+	// 		  << " B2 " << EF._uORB_B2_Speed << "                        "
+	// 		  << "\n";
 
-	std::cout << "IMUSenorData: "
-			  << " \n";
-	std::cout << " GryoPitch:   " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MPU_Data._uORB_Gryo_Pitch << "    "
-			  << " GryoRoll:    " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MPU_Data._uORB_Gryo__Roll << "    "
-			  << " GryoYaw:     " << std::setw(7) << std::setfill(' ') << (int)PF._uORB_PID_GYaw_Output << "    "
-			  << "                        "
-			  << std::endl;
-	std::cout << " RealPitch:   " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MPU_Data._uORB_Real_Pitch << "    "
-			  << " RealRoll:    " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MPU_Data._uORB_Real__Roll << "    "
-			  << " RealYaw :    " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MPU_Data._uORB_Real___Yaw << "    "
-			  << std::endl;
-	std::cout << " AccePitch:   " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MPU_Data._uORB_Accel_Pitch << "    "
-			  << " AcceRoll:    " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MPU_Data._uORB_Accel__Roll << "    "
-			  << " AccelG  :    " << std::setw(7) << std::setfill(' ') << SF._uORB_MPU_Data._uORB_MPU9250_A_Vector << "    "
-			  << "                        "
-			  << std::endl;
-	std::cout << " AccelXG:     " << std::setw(7) << std::setfill(' ') << SF._uORB_MPU_Data._uORB_MPU9250_ADF_X << "    "
-			  << " AccelYG:     " << std::setw(7) << std::setfill(' ') << SF._uORB_MPU_Data._uORB_MPU9250_ADF_Y << "    "
-			  << " AccelZG:     " << std::setw(7) << std::setfill(' ') << SF._uORB_MPU_Data._uORB_MPU9250_ADF_Z << "    "
-			  << "                        "
-			  << std::endl;
-	std::cout << " VIBEX:       " << std::setw(7) << std::setfill(' ') << (int)(SF._uORB_MPU_Data._uORB_Accel_VIBE_X * 1000.f) << "    "
-			  << " VIBEY:       " << std::setw(7) << std::setfill(' ') << (int)(SF._uORB_MPU_Data._uORB_Accel_VIBE_X * 1000.f) << "    "
-			  << " VIBEZ:       " << std::setw(7) << std::setfill(' ') << (int)(SF._uORB_MPU_Data._uORB_Accel_VIBE_X * 1000.f) << "    "
-			  << "                        "
-			  << std::endl;
-	std::cout << " AccelClipped:" << std::setw(7) << std::setfill(' ') << SF._uORB_MPU_Data._uORB_MPU9250_ACC_Clipped << "    "
-			  << " AccelClCount:" << std::setw(7) << std::setfill(' ') << SF._uORB_Accel_Clipped_Count << "    "
-			  << " AccelDynamic:" << std::setw(7) << std::setfill(' ') << PF._uORB_Accel_Dynamic_Beta << "    "
-			  << "                        "
-			  << std::endl;
-	std::cout << " MAGYAW:      " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MAG_Yaw << "    "
-			  << " MAGSYAW:     " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MAG_StaticYaw << "    "
-			  << " NAVYAW:      " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_NAV_Yaw << "    "
-			  << " IMUTIME:     " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MPU_Data._uORB_MPU9250_IMUUpdateTime << "         \n"
-			  << " MAGRawX:     " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MAG_RawX << "    "
-			  << " MAGRawY:     " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MAG_RawY << "    "
-			  << " MAGRawZ:     " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MAG_RawZ << "    "
-			  << " MAGRawV:     " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MAG_Vector << "    "
-			  << std::endl;
-	std::cout << " AccelrationX:" << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MPU_Data._uORB_Acceleration_X << "cms2"
-			  << " AccelrationY:" << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MPU_Data._uORB_Acceleration_Y << "cms2"
-			  << " AccelrationZ:" << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MPU_Data._uORB_Acceleration_Z << "cms2"
-			  << "                        "
-			  << std::endl;
-	std::cout << " SpeedX:      " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_True_Speed_X << "cms "
-			  << " SpeedY       " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_True_Speed_Y << "cms "
-			  << " SpeedZ:      " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_True_Speed_Z << "cms "
-			  << "                        "
-			  << std::endl;
-	std::cout << " MoveX:       " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_True_Movement_X << "cm  "
-			  << " MoveY        " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_True_Movement_Y << "cm  "
-			  << " MoveZ:       " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_True_Movement_Z << "cm  "
-			  << "                        "
-			  << std::endl;
-	std::cout
-		<< "BAROParseDataINFO:"
-		<< "\n";
-	std::cout << " ||FilterPressure:     " << std::setw(7) << std::setfill(' ') << std::setiosflags(std::ios::fixed) << std::setprecision(2)
-			  << SF._uORB_BARO_Data.PressureHPA << " hpa";
-	std::cout << " ||Altitude:           " << std::setw(7) << std::setfill(' ') << (int)PF._uORB_PID_BARO_AltInput << "  cm";
-	std::cout << " ||Temp:               " << std::setw(7) << std::setfill(' ') << std::setiosflags(std::ios::fixed) << std::setprecision(2)
-			  << (SF._uORB_BARO_Data.TemperatureC) << "   C";
-	std::cout << " ||AltHoldTarget:      " << std::setw(7) << std::setfill(' ') << (int)PF._uORB_PID_AltHold_Target << "  cm\n";
-	std::cout << " ||AltholdThrottle:    " << std::setw(7) << std::setfill(' ') << (int)PF._uORB_PID_Alt_Throttle << "    ";
-	std::cout << " ||TargetSpeed:        " << std::setw(7) << std::setfill(' ') << (int)PF._uORB_PID_InputTarget << "    \n";
-	std::cout
-		<< "FlowParseDataINFO:"
-		<< "\n";
-	std::cout << " FlowXOut:       " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_Flow_XOutput << "    ";
-	std::cout << " ||FlowYOut:     " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_Flow_YOutput << "    ";
-	std::cout << " ||FlowAltitude: " << std::setw(7) << std::setfill(' ') << (int)PF._uORB_PID_Sonar_AltInput << "    ";
-	std::cout << " ||FlowSpeedX:   " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_Flow_Speed_X << "cm/s            \n";
-	std::cout << " FlowXOutTotal:  " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_Flow_XOutput_Total << "    ";
-	std::cout << " ||FlowYOutTotal:" << std::setw(7) << std::setfill(' ') << (int)SF._uORB_Flow_YOutput_Total << "    ";
-	std::cout << " ||FlowSpeed:    " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_Flow_ClimbeRate << "cm/s";
-	std::cout << " ||FlowQuality:  " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_Flow_Quality << "    ";
-	std::cout << " ||FlowSpeedY:   " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_Flow_Speed_Y << "cm/s            \n";
+	// std::cout << "IMUSenorData: "
+	// 		  << " \n";
+	// std::cout << " GryoPitch:   " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MPU_Data._uORB_Gryo_Pitch << "    "
+	// 		  << " GryoRoll:    " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MPU_Data._uORB_Gryo__Roll << "    "
+	// 		  << " GryoYaw:     " << std::setw(7) << std::setfill(' ') << (int)PF._uORB_PID_GYaw_Output << "    "
+	// 		  << "                        "
+	// 		  << std::endl;
+	// std::cout << " RealPitch:   " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MPU_Data._uORB_Real_Pitch << "    "
+	// 		  << " RealRoll:    " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MPU_Data._uORB_Real__Roll << "    "
+	// 		  << " RealYaw :    " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MPU_Data._uORB_Real___Yaw << "    "
+	// 		  << std::endl;
+	// std::cout << " AccePitch:   " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MPU_Data._uORB_Accel_Pitch << "    "
+	// 		  << " AcceRoll:    " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MPU_Data._uORB_Accel__Roll << "    "
+	// 		  << " AccelG  :    " << std::setw(7) << std::setfill(' ') << SF._uORB_MPU_Data._uORB_MPU9250_A_Vector << "    "
+	// 		  << "                        "
+	// 		  << std::endl;
+	// std::cout << " AccelXG:     " << std::setw(7) << std::setfill(' ') << SF._uORB_MPU_Data._uORB_MPU9250_ADF_X << "    "
+	// 		  << " AccelYG:     " << std::setw(7) << std::setfill(' ') << SF._uORB_MPU_Data._uORB_MPU9250_ADF_Y << "    "
+	// 		  << " AccelZG:     " << std::setw(7) << std::setfill(' ') << SF._uORB_MPU_Data._uORB_MPU9250_ADF_Z << "    "
+	// 		  << "                        "
+	// 		  << std::endl;
+	// std::cout << " VIBEX:       " << std::setw(7) << std::setfill(' ') << (int)(SF._uORB_MPU_Data._uORB_Accel_VIBE_X * 1000.f) << "    "
+	// 		  << " VIBEY:       " << std::setw(7) << std::setfill(' ') << (int)(SF._uORB_MPU_Data._uORB_Accel_VIBE_X * 1000.f) << "    "
+	// 		  << " VIBEZ:       " << std::setw(7) << std::setfill(' ') << (int)(SF._uORB_MPU_Data._uORB_Accel_VIBE_X * 1000.f) << "    "
+	// 		  << "                        "
+	// 		  << std::endl;
+	// std::cout << " AccelClipped:" << std::setw(7) << std::setfill(' ') << SF._uORB_MPU_Data._uORB_MPU9250_ACC_Clipped << "    "
+	// 		  << " AccelClCount:" << std::setw(7) << std::setfill(' ') << SF._uORB_Accel_Clipped_Count << "    "
+	// 		  << " AccelDynamic:" << std::setw(7) << std::setfill(' ') << PF._uORB_Accel_Dynamic_Beta << "    "
+	// 		  << "                        "
+	// 		  << std::endl;
+	// std::cout << " MAGYAW:      " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MAG_Yaw << "    "
+	// 		  << " MAGSYAW:     " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MAG_StaticYaw << "    "
+	// 		  << " NAVYAW:      " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_NAV_Yaw << "    "
+	// 		  << " IMUTIME:     " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MPU_Data._uORB_MPU9250_IMUUpdateTime << "         \n"
+	// 		  << " MAGRawX:     " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MAG_RawX << "    "
+	// 		  << " MAGRawY:     " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MAG_RawY << "    "
+	// 		  << " MAGRawZ:     " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MAG_RawZ << "    "
+	// 		  << " MAGRawV:     " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MAG_Vector << "    "
+	// 		  << std::endl;
+	// std::cout << " AccelrationX:" << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MPU_Data._uORB_Acceleration_X << "cms2"
+	// 		  << " AccelrationY:" << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MPU_Data._uORB_Acceleration_Y << "cms2"
+	// 		  << " AccelrationZ:" << std::setw(7) << std::setfill(' ') << (int)SF._uORB_MPU_Data._uORB_Acceleration_Z << "cms2"
+	// 		  << "                        "
+	// 		  << std::endl;
+	// std::cout << " SpeedX:      " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_True_Speed_X << "cms "
+	// 		  << " SpeedY       " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_True_Speed_Y << "cms "
+	// 		  << " SpeedZ:      " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_True_Speed_Z << "cms "
+	// 		  << "                        "
+	// 		  << std::endl;
+	// std::cout << " MoveX:       " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_True_Movement_X << "cm  "
+	// 		  << " MoveY        " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_True_Movement_Y << "cm  "
+	// 		  << " MoveZ:       " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_True_Movement_Z << "cm  "
+	// 		  << "                        "
+	// 		  << std::endl;
+	// std::cout
+	// 	<< "BAROParseDataINFO:"
+	// 	<< "\n";
+	// std::cout << " ||FilterPressure:     " << std::setw(7) << std::setfill(' ') << std::setiosflags(std::ios::fixed) << std::setprecision(2)
+	// 		  << SF._uORB_BARO_Data.PressureHPA << " hpa";
+	// std::cout << " ||Altitude:           " << std::setw(7) << std::setfill(' ') << (int)PF._uORB_PID_BARO_AltInput << "  cm";
+	// std::cout << " ||Temp:               " << std::setw(7) << std::setfill(' ') << std::setiosflags(std::ios::fixed) << std::setprecision(2)
+	// 		  << (SF._uORB_BARO_Data.TemperatureC) << "   C";
+	// std::cout << " ||AltHoldTarget:      " << std::setw(7) << std::setfill(' ') << (int)PF._uORB_PID_AltHold_Target << "  cm\n";
+	// std::cout << " ||AltholdThrottle:    " << std::setw(7) << std::setfill(' ') << (int)PF._uORB_PID_Alt_Throttle << "    ";
+	// std::cout << " ||TargetSpeed:        " << std::setw(7) << std::setfill(' ') << (int)PF._uORB_PID_InputTarget << "    \n";
+	// std::cout
+	// 	<< "FlowParseDataINFO:"
+	// 	<< "\n";
+	// std::cout << " FlowXOut:       " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_Flow_XOutput << "    ";
+	// std::cout << " ||FlowYOut:     " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_Flow_YOutput << "    ";
+	// std::cout << " ||FlowAltitude: " << std::setw(7) << std::setfill(' ') << (int)PF._uORB_PID_Sonar_AltInput << "    ";
+	// std::cout << " ||FlowSpeedX:   " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_Flow_Speed_X << "cm/s            \n";
+	// std::cout << " FlowXOutTotal:  " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_Flow_XOutput_Total << "    ";
+	// std::cout << " ||FlowYOutTotal:" << std::setw(7) << std::setfill(' ') << (int)SF._uORB_Flow_YOutput_Total << "    ";
+	// std::cout << " ||FlowSpeed:    " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_Flow_ClimbeRate << "cm/s";
+	// std::cout << " ||FlowQuality:  " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_Flow_Quality << "    ";
+	// std::cout << " ||FlowSpeedY:   " << std::setw(7) << std::setfill(' ') << (int)SF._uORB_Flow_Speed_Y << "cm/s            \n";
 
-	std::cout << "GPSDataINFO:"
-			  << "\n";
-	std::cout << " GPSLAT:       " << std::setw(10) << std::setfill(' ') << (int)SF._uORB_GPS_COR_Lat
-			  << " ||GPSNE:          " << SF._uORB_GPS_Data.lat_North_Mode << " -> " << SF._uORB_GPS_Data.lat_East_Mode
-			  << " ||PosXOutput: " << std::setw(10) << std::setfill(' ') << PF._uORB_PID_PosX_Output
-			  << " ||GPSRealX:  " << std::setw(10) << std::setfill(' ') << SF._uORB_GPS_Real_X
-			  << " ||GPSSpeedX:  " << std::setw(10) << std::setfill(' ') << SF._uORB_GPS_Speed_XF
-			  << "            \n";
-	std::cout << " GPSLNG:       " << std::setw(10) << std::setfill(' ') << (int)SF._uORB_GPS_COR_Lng
-			  << " ||GPSSATCount:" << std::setw(10) << std::setfill(' ') << SF._uORB_GPS_Data.satillitesCount
-			  << " ||PosYOutput: " << std::setw(10) << std::setfill(' ') << PF._uORB_PID_PosY_Output
-			  << " ||GPSRealY:  " << std::setw(10) << std::setfill(' ') << SF._uORB_GPS_Real_Y
-			  << " ||GPSSpeedY:  " << std::setw(10) << std::setfill(' ') << SF._uORB_GPS_Speed_YF
-			  << "            \n";
+	// std::cout << "GPSDataINFO:"
+	// 		  << "\n";
+	// std::cout << " GPSLAT:       " << std::setw(10) << std::setfill(' ') << (int)SF._uORB_GPS_COR_Lat
+	// 		  << " ||GPSNE:          " << SF._uORB_GPS_Data.lat_North_Mode << " -> " << SF._uORB_GPS_Data.lat_East_Mode
+	// 		  << " ||PosXOutput: " << std::setw(10) << std::setfill(' ') << PF._uORB_PID_PosX_Output
+	// 		  << " ||GPSRealX:  " << std::setw(10) << std::setfill(' ') << SF._uORB_GPS_Real_X
+	// 		  << " ||GPSSpeedX:  " << std::setw(10) << std::setfill(' ') << SF._uORB_GPS_Speed_XF
+	// 		  << "            \n";
+	// std::cout << " GPSLNG:       " << std::setw(10) << std::setfill(' ') << (int)SF._uORB_GPS_COR_Lng
+	// 		  << " ||GPSSATCount:" << std::setw(10) << std::setfill(' ') << SF._uORB_GPS_Data.satillitesCount
+	// 		  << " ||PosYOutput: " << std::setw(10) << std::setfill(' ') << PF._uORB_PID_PosY_Output
+	// 		  << " ||GPSRealY:  " << std::setw(10) << std::setfill(' ') << SF._uORB_GPS_Real_Y
+	// 		  << " ||GPSSpeedY:  " << std::setw(10) << std::setfill(' ') << SF._uORB_GPS_Speed_YF
+	// 		  << "            \n";
 
-	std::cout << "RCOutPUTINFO:   "
-			  << "\n";
-	std::cout << " ChannelRoll  "
-			  << ": " << RF._uORB_RC_Out__Roll << std::setw(5) << std::setfill(' ') << " ||";
-	std::cout << " ChannelPitch "
-			  << ": " << RF._uORB_RC_Out_Pitch << std::setw(5) << std::setfill(' ') << " ||";
-	std::cout << " ChannelThrot "
-			  << ": " << RF._uORB_RC_Out_Throttle << std::setw(5) << std::setfill(' ') << " ||";
-	std::cout << " ChannelYaw   "
-			  << ": " << RF._uORB_RC_Out___Yaw << std::setw(5) << std::setfill(' ') << " \n";
+	// std::cout << "RCOutPUTINFO:   "
+	// 		  << "\n";
+	// std::cout << " ChannelRoll  "
+	// 		  << ": " << RF._uORB_RC_Out__Roll << std::setw(5) << std::setfill(' ') << " ||";
+	// std::cout << " ChannelPitch "
+	// 		  << ": " << RF._uORB_RC_Out_Pitch << std::setw(5) << std::setfill(' ') << " ||";
+	// std::cout << " ChannelThrot "
+	// 		  << ": " << RF._uORB_RC_Out_Throttle << std::setw(5) << std::setfill(' ') << " ||";
+	// std::cout << " ChannelYaw   "
+	// 		  << ": " << RF._uORB_RC_Out___Yaw << std::setw(5) << std::setfill(' ') << " \n";
 
-	std::cout << "ChannelINFO: "
-			  << " \n";
-	for (size_t i = 0; i < 16; i++)
-	{
-		std::cout << " " << RF._uORB_RC_Channel_PWM[i] << " ";
-	}
-	std::cout << "                            \n";
+	// std::cout << "ChannelINFO: "
+	// 		  << " \n";
+	// for (size_t i = 0; i < 16; i++)
+	// {
+	// 	std::cout << " " << RF._uORB_RC_Channel_PWM[i] << " ";
+	// }
+	// std::cout << "                            \n";
 
-	std::cout << (int)SF._uORB_MPU_Data._uORB_Gyro_Dynamic_NotchCenterHZ[0] << "          \n";
-	std::cout << (int)SF._uORB_MPU_Data._uORB_Gyro_Dynamic_NotchCenterHZ[1] << "          \n";
-	std::cout << (int)SF._uORB_MPU_Data._uORB_Gyro_Dynamic_NotchCenterHZ[2] << "          \n";
+	// std::cout << (int)SF._uORB_MPU_Data._uORB_Gyro_Dynamic_NotchCenterHZ[0] << "          \n";
+	// std::cout << (int)SF._uORB_MPU_Data._uORB_Gyro_Dynamic_NotchCenterHZ[1] << "          \n";
+	// std::cout << (int)SF._uORB_MPU_Data._uORB_Gyro_Dynamic_NotchCenterHZ[2] << "          \n";
 
-	std::cout << (int)SF._uORB_MPU_Data.fftindexs[0] << "          \n";
-	std::cout << (int)SF._uORB_MPU_Data.fftindexs[1] << "          \n";
-	std::cout << (int)SF._uORB_MPU_Data.fftindexs[2] << "          \n";
+	// std::cout << (int)SF._uORB_MPU_Data.fftindexs[0] << "          \n";
+	// std::cout << (int)SF._uORB_MPU_Data.fftindexs[1] << "          \n";
+	// std::cout << (int)SF._uORB_MPU_Data.fftindexs[2] << "          \n";
 
-	if (SF._uORB_MPU_Data.FFTSampleBox.size() > 2)
-	{
-		for (size_t i = 0; i < SF._uORB_MPU_Data.FFTSampleBox[0].size() / 2; i++)
-		{
-			std::cout << " " << (int)SF._uORB_MPU_Data.FFTSampleBox[0][i] << " ";
-		}
-		std::cout << "                            \n";
+	// if (SF._uORB_MPU_Data.FFTSampleBox.size() > 2)
+	// {
+	// 	for (size_t i = 0; i < SF._uORB_MPU_Data.FFTSampleBox[0].size() / 2; i++)
+	// 	{
+	// 		std::cout << " " << (int)SF._uORB_MPU_Data.FFTSampleBox[0][i] << " ";
+	// 	}
+	// 	std::cout << "                            \n";
 
-		for (size_t i = 0; i < SF._uORB_MPU_Data.FFTSampleBox[1].size() / 2; i++)
-		{
-			std::cout << " " << (int)SF._uORB_MPU_Data.FFTSampleBox[1][i] << " ";
-		}
-		std::cout << "                            \n";
+	// 	for (size_t i = 0; i < SF._uORB_MPU_Data.FFTSampleBox[1].size() / 2; i++)
+	// 	{
+	// 		std::cout << " " << (int)SF._uORB_MPU_Data.FFTSampleBox[1][i] << " ";
+	// 	}
+	// 	std::cout << "                            \n";
 
-		for (size_t i = 0; i < SF._uORB_MPU_Data.FFTSampleBox[2].size() / 2; i++)
-		{
-			std::cout << " " << (int)SF._uORB_MPU_Data.FFTSampleBox[2][i] << " ";
-		}
-		std::cout << "                            \n";
-	}
+	// 	for (size_t i = 0; i < SF._uORB_MPU_Data.FFTSampleBox[2].size() / 2; i++)
+	// 	{
+	// 		std::cout << " " << (int)SF._uORB_MPU_Data.FFTSampleBox[2][i] << " ";
+	// 	}
+	// 	std::cout << "                            \n";
+	// }
 
-	std::cout << "ADCINFO:     "
-			  << " \n";
-	std::cout << " voltage:" << std::setw(7) << std::setfill(' ') << std::setiosflags(std::ios::fixed) << std::setprecision(2) << SF._uORB_BAT_Voltage << " V";
-	std::cout << " ||sin_vol:" << std::setw(7) << std::setfill(' ') << std::setiosflags(std::ios::fixed) << std::setprecision(2) << SF._uORB_BAT_SingleVol << " V";
-	std::cout << " \n";
+	// std::cout << "ADCINFO:     "
+	// 		  << " \n";
+	// std::cout << " voltage:" << std::setw(7) << std::setfill(' ') << std::setiosflags(std::ios::fixed) << std::setprecision(2) << SF._uORB_BAT_Voltage << " V";
+	// std::cout << " ||sin_vol:" << std::setw(7) << std::setfill(' ') << std::setiosflags(std::ios::fixed) << std::setprecision(2) << SF._uORB_BAT_SingleVol << " V";
+	// std::cout << " \n";
 
-	std::bitset<16> x(AF._flag_PreARM_Check_Level);
-	std::cout << " PreARMCheckInfo:    " << x << "                  \n";
-	std::bitset<16> s(AF._flag_FailedSafe_Level);
-	std::cout << " FailedSafekInfo:    " << s << "                  \n";
+	// std::bitset<16> x(AF._flag_PreARM_Check_Level);
+	// std::cout << " PreARMCheckInfo:    " << x << "                  \n";
+	// std::bitset<16> s(AF._flag_FailedSafe_Level);
+	// std::cout << " FailedSafekInfo:    " << s << "                  \n";
 
-	std::cout << " Flag_ESC_ARMED:         " << std::setw(3) << std::setfill(' ') << AF._flag_ESC_ARMED << " |";
-	std::cout << " Flag_Error:             " << std::setw(3) << std::setfill(' ') << AF._flag_Error << " |";
-	std::cout << " TakeOffing:             " << std::setw(3) << std::setfill(' ') << AF._flag_IsAutoTakeoffRequire << " |";
-	std::cout << " UserARMRequire:         " << std::setw(3) << std::setfill(' ') << AF._flag_ESC_DISARMED_Request << " |";
-	std::cout << " Flag_GPS_Error:         " << std::setw(3) << std::setfill(' ') << AF._flag_GPS_Error << "           \n";
-	std::cout << " Flag_RC_Disconnected:   " << std::setw(3) << std::setfill(' ') << AF._flag_RC_Disconnected << " |";
-	std::cout << " Flag_Flow_ErrorClock:   " << std::setw(3) << std::setfill(' ') << AF.Flow_Lose_Clocking << " |";
-	std::cout << " Flag_PreARMCheckPass:   " << std::setw(3) << std::setfill(' ') << AF._flag_PreARM_Check << " |";
-	std::cout << " Flag_GPS_Disconnected:  " << std::setw(3) << std::setfill(' ') << AF._flag_GPS_Disconnected << "         \n";
-	std::cout << " Flag_FakeRC_Error:      " << std::setw(3) << std::setfill(' ') << AF._flag_FakeRC_Error << " |";
-	std::cout << " Flag_FakeRC_Disconnect: " << std::setw(3) << std::setfill(' ') << AF.FakeRC_Lose_Clocking << " |";
-	std::cout << " Flag_MAG_Cali_Failed:   " << std::setw(3) << std::setfill(' ') << AF._flag_MAG_Cali_Failed << " |";
-	std::cout << " Flag_MPUCalibrating:    " << std::setw(3) << std::setfill(' ') << AF._flag_MPUCalibratingSet << " |";
-	std::cout << " Flag_IsNAVAvaliable:    " << std::setw(3) << std::setfill(' ') << AF._flag_IsNAVAvalible << "           \n";
-	std::cout << " Flag_IsFlowAvalible:    " << std::setw(3) << std::setfill(' ') << AF._flag_IsFlowAvalible << " |";
-	std::cout << " Flag_IsSonarAvalible:   " << std::setw(3) << std::setfill(' ') << AF._flag_IsSonarAvalible << " |";
-	std::cout << " GPS_Lose_Clocking:      " << std::setw(3) << std::setfill(' ') << AF.GPS_Lose_Clocking << " |";
-	std::cout << " Flag_RC_Error:          " << std::setw(3) << std::setfill(' ') << AF._flag_RC_Error << " |";
-	std::cout << " RC_Lose_Clocking:       " << std::setw(3) << std::setfill(' ') << AF.RC_Lose_Clocking << "                        \n\n";
+	// std::cout << " Flag_ESC_ARMED:         " << std::setw(3) << std::setfill(' ') << AF._flag_ESC_ARMED << " |";
+	// std::cout << " Flag_Error:             " << std::setw(3) << std::setfill(' ') << AF._flag_Error << " |";
+	// std::cout << " TakeOffing:             " << std::setw(3) << std::setfill(' ') << AF._flag_IsAutoTakeoffRequire << " |";
+	// std::cout << " UserARMRequire:         " << std::setw(3) << std::setfill(' ') << AF._flag_ESC_DISARMED_Request << " |";
+	// std::cout << " Flag_GPS_Error:         " << std::setw(3) << std::setfill(' ') << AF._flag_GPS_Error << "           \n";
+	// std::cout << " Flag_RC_Disconnected:   " << std::setw(3) << std::setfill(' ') << AF._flag_RC_Disconnected << " |";
+	// std::cout << " Flag_Flow_ErrorClock:   " << std::setw(3) << std::setfill(' ') << AF.Flow_Lose_Clocking << " |";
+	// std::cout << " Flag_PreARMCheckPass:   " << std::setw(3) << std::setfill(' ') << AF._flag_PreARM_Check << " |";
+	// std::cout << " Flag_GPS_Disconnected:  " << std::setw(3) << std::setfill(' ') << AF._flag_GPS_Disconnected << "         \n";
+	// std::cout << " Flag_FakeRC_Error:      " << std::setw(3) << std::setfill(' ') << AF._flag_FakeRC_Error << " |";
+	// std::cout << " Flag_FakeRC_Disconnect: " << std::setw(3) << std::setfill(' ') << AF.FakeRC_Lose_Clocking << " |";
+	// std::cout << " Flag_MAG_Cali_Failed:   " << std::setw(3) << std::setfill(' ') << AF._flag_MAG_Cali_Failed << " |";
+	// std::cout << " Flag_MPUCalibrating:    " << std::setw(3) << std::setfill(' ') << AF._flag_MPUCalibratingSet << " |";
+	// std::cout << " Flag_IsNAVAvaliable:    " << std::setw(3) << std::setfill(' ') << AF._flag_IsNAVAvalible << "           \n";
+	// std::cout << " Flag_IsFlowAvalible:    " << std::setw(3) << std::setfill(' ') << AF._flag_IsFlowAvalible << " |";
+	// std::cout << " Flag_IsSonarAvalible:   " << std::setw(3) << std::setfill(' ') << AF._flag_IsSonarAvalible << " |";
+	// std::cout << " GPS_Lose_Clocking:      " << std::setw(3) << std::setfill(' ') << AF.GPS_Lose_Clocking << " |";
+	// std::cout << " Flag_RC_Error:          " << std::setw(3) << std::setfill(' ') << AF._flag_RC_Error << " |";
+	// std::cout << " RC_Lose_Clocking:       " << std::setw(3) << std::setfill(' ') << AF.RC_Lose_Clocking << "                        \n\n";
 
-	std::cout << " IMUNAVDT:    " << std::setw(7) << std::setfill(' ') << TF._Tmp_IMUNavThreadDT << "    \n";
-	std::cout << " IMUATTDT:    " << std::setw(7) << std::setfill(' ') << TF._uORB_IMUAttThreadDT << "    \n";
-	std::cout << " IMU Freq:    " << std::setw(7) << std::setfill(' ') << (TF.IMUFlow ? TF.IMUFlow->RunClockHz : -1) << "    \n";
-	std::cout << " ESC Freq:    " << std::setw(7) << std::setfill(' ') << (TF.ESCFlow ? TF.ESCFlow->RunClockHz : -1) << "    \n";
-	std::cout << " RTX Freq:    " << std::setw(7) << std::setfill(' ') << (TF.RTXFlow ? TF.RTXFlow->RunClockHz : -1) << "    \n";
-	std::cout << " TEL Freq:    " << std::setw(7) << std::setfill(' ') << (TF.TELFlow ? TF.TELFlow->RunClockHz : -1) << "    \n";
-	std::cout << " ALT Freq:    " << std::setw(7) << std::setfill(' ') << (TF.ALTFlow ? TF.ALTFlow->RunClockHz : -1) << "    \n";
+	// std::cout << " IMUNAVDT:    " << std::setw(7) << std::setfill(' ') << TF._Tmp_IMUNavThreadDT << "    \n";
+	// std::cout << " IMUATTDT:    " << std::setw(7) << std::setfill(' ') << TF._uORB_IMUAttThreadDT << "    \n";
+	// std::cout << " IMU Freq:    " << std::setw(7) << std::setfill(' ') << (TF.IMUFlow ? TF.IMUFlow->RunClockHz : -1) << "    \n";
+	// std::cout << " ESC Freq:    " << std::setw(7) << std::setfill(' ') << (TF.ESCFlow ? TF.ESCFlow->RunClockHz : -1) << "    \n";
+	// std::cout << " RTX Freq:    " << std::setw(7) << std::setfill(' ') << (TF.RTXFlow ? TF.RTXFlow->RunClockHz : -1) << "    \n";
+	// std::cout << " TEL Freq:    " << std::setw(7) << std::setfill(' ') << (TF.TELFlow ? TF.TELFlow->RunClockHz : -1) << "    \n";
+	// std::cout << " ALT Freq:    " << std::setw(7) << std::setfill(' ') << (TF.ALTFlow ? TF.ALTFlow->RunClockHz : -1) << "    \n";
 }
 
 int SingleAPMAPI::RPiSingleAPM::GetTimestamp()

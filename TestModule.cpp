@@ -14,11 +14,12 @@ using namespace SingleAPMAPI;
 void configWrite(const char *configDir, const char *substr, const char *Target, double obj);
 void configSettle(const char *configDir, const char *substr, APMSettinngs &APMInit);
 void SignalCatch(int Signal);
+RPiSingleAPM APM_Settle;
+double data[20] = {0};
 
 int main(int argc, char *argv[])
 {
 	int argvs;
-	double data[20] = {0};
 	APMSettinngs setting;
 	while ((argvs = getopt(argc, argv, "e:E:C:r:s:a:jh")) != -1)
 	{
@@ -39,12 +40,22 @@ int main(int argc, char *argv[])
 			sprintf(cmd, "mkdir -p %s", BlackBoxLogDir);
 			std::cout << "[RPiSingleAPM] Create log dir: " << cmd << "\n";
 			system(cmd);
-			RPiSingleAPM APM_Settle;
+			
 			configSettle(CONFIGDIR, optarg, setting);
 			APM_Settle.RPiSingleAPMInit(setting);
 			// Because of PiGPIO ,if you must handle Signal, should be call after RPiSingleAPMInit()
 			std::signal(SIGINT, SignalCatch);
 			std::signal(SIGTERM, SignalCatch);
+			std::signal(SIGSEGV, [](int a) { 
+				std::cout<<"666"<<"\r\n";
+				data[0] = 16;
+				APM_Settle.APMCalibrator(ESCCalibration, CaliESCStart, 0, data);
+				exit(1);
+
+				});
+			int* ptr = nullptr; // 创建一个空指针喵~
+			*ptr = 42; // 尝试解引用空指针，导致段错误喵~
+			std::cout << *ptr << std::endl; // 这行不会被执行喵~
 			//
 			APM_Settle.RPiSingleAPMStartUp();
 			APM_Settle.TaskThreadBlock();
@@ -196,3 +207,4 @@ void SignalCatch(int Signal)
 {
 	SingleAPMAPI::SystemSignal = Signal;
 };
+
