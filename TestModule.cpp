@@ -47,15 +47,10 @@ int main(int argc, char *argv[])
 			std::signal(SIGINT, SignalCatch);
 			std::signal(SIGTERM, SignalCatch);
 			std::signal(SIGSEGV, [](int a) { 
-				std::cout<<"666"<<"\r\n";
-				data[0] = 16;
-				APM_Settle.APMCalibrator(ESCCalibration, CaliESCStart, 0, data);
+				std::cout<<"seg error"<<"\r\n";
+				APM_Settle.APMControllerARMED();
 				exit(1);
-
 				});
-			int* ptr = nullptr; // 创建一个空指针喵~
-			*ptr = 42; // 尝试解引用空指针，导致段错误喵~
-			std::cout << *ptr << std::endl; // 这行不会被执行喵~
 			//
 			APM_Settle.RPiSingleAPMStartUp();
 			APM_Settle.TaskThreadBlock();
